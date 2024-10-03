@@ -16,6 +16,12 @@ def merge_two_dicts(initial, modifier):
     return merged_dictionary
 
 
+def count_fits_into_one(value):
+    if value <= 0:
+        raise ValueError("The input must be a positive float.")
+    return float(1 / value)  # Better to use int() if fractional share weren't needed to be accounted for
+
+
 def build_headers(headers=None):
     transform_headers = {
         "host": "www.digitalbrokerageservices.com",
@@ -85,7 +91,8 @@ def holdings():
             for position in positions:
                 security_symbol = position['security']['symbol']
                 current_value = position['currentValue']
-                print(f"Security Symbol: {security_symbol}, Current Value: {current_value}")
+                security_count = position['securityCount']
+                print(f"Security Symbol: {security_symbol}, Holdings {security_count}, Current Value: {current_value}")
 
 
 # This can be used to get the price of stocks, so you can sell any extra shares you maybe needed to buy in order to
@@ -194,9 +201,20 @@ def transaction_quantity(ticker, action, quantity):
 def main():
     login()
     holdings()
-    # transaction_price("CNET", "SELL", 1)
-    # get_stock_market_price("CNET")
-    transaction_quantity("CNET", "BUY", 1)
+    # for stock in ["LSB", "KWE", "VERB"]:
+    #     try:
+    #         transaction_price(stock, "BUY", 1)
+    #         price = get_stock_market_price(stock)
+    #         print(f"Price of {stock}: {price}")
+    #         fits_into_one = count_fits_into_one(float(price))
+    #         print(f"Fits_into_one: {fits_into_one}")
+    #         amount_to_sell = fits_into_one - 1
+    #         print(f"Amount to sell: {amount_to_sell}")
+    #         if not amount_to_sell <= 0:
+    #             transaction_quantity(stock, "SELL", amount_to_sell)
+    #     except Exception as e:
+    #         print(f"Error during trading loop: {e}")
+    #         continue
 
 
 if __name__ == '__main__':
