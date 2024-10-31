@@ -7,6 +7,12 @@ from plynk_api import endpoints
 
 
 def check_login(func):
+    """
+    Decorator that ensures that the client is logged in before executing the targeted function.
+
+    :param func: The function targeted by the decorator.
+    :return: The nested wrapper function.
+    """
     def wrapper(self, *args, **kwargs):
         if self.logged_in is False:
             raise RuntimeError("Plynk not logged in. Please login first.")
@@ -16,7 +22,7 @@ def check_login(func):
 
 
 class Plynk:
-    def __init__(self, username: str, password: str, filename: str = "plynk_credentials.pkl", path: Optional[str] = None, proxy: tuple[str, Optional[str]] = None) -> None:
+    def __init__(self, username: str, password: str, filename: str = "plynk_credentials.pkl", path: Optional[str] = None, proxy_url: Optional[str] = None, proxy_auth: Optional[tuple[str, str]] = None) -> None:
         """
         Builder for Plynk API. Provides support for cookie locations as well as proxy support.
 
@@ -24,24 +30,33 @@ class Plynk:
         :param password: Plynk password.
         :param filename: Cookie filename.
         :param path: Path cookie file will be saved in. Default is current directory.
-        :param proxy: Tuple of (PROXY_URL_AND_PORT, PROXY_USERNAME:PASSWORD [Optional])
+        :param proxy_url: String of "PROXY_URL:PROXY_PORT"
+        :param proxy_auth: Tuple of (PROXY_USERNAME, PASSWORD)
         """
         self.username: str = username
         self.password: str = password
         self.filename: str = filename
         self.path = path
-        self.proxy = proxy
-        self._set_session(proxy)
+        self.proxy_url = proxy_url
+        self.proxy_auth = proxy_auth
+        self._set_session(proxy_url, proxy_auth)
         self.account_number: Optional[str] = None
         self.logged_in = False
 
         self._load_credentials()
 
-    def _set_session(self, proxy):
-        if proxy is not None and proxy[1] is not None:
-            self.session: requests.Session = requests.Session(impersonate="safari_ios", proxy=proxy[0], proxy_auth=proxy[1], timeout=10)
-        elif proxy is not None:
-            self.session: requests.Session = requests.Session(impersonate="safari_ios", proxy=proxy[0], timeout=10)
+    def _set_session(self, proxy_url: str, proxy_auth: Optional[tuple[str, str]] = None) -> None:
+        """
+        Sets the request session and handles the proxy.
+
+        :param proxy_url: String of "PROXY_URL:PROXY_PORT"
+        :param proxy_auth: Tuple of (PROXY_USERNAME, PASSWORD)
+        :return: None
+        """
+        if proxy_url is not None and proxy_auth is not None:
+            self.session: requests.Session = requests.Session(impersonate="safari_ios", proxy=proxy_url, proxy_auth=proxy_auth, timeout=10)
+        elif proxy_url is not None:
+            self.session: requests.Session = requests.Session(impersonate="safari_ios", proxy=proxy_url, timeout=10)
         else:
             self.session: requests.Session = requests.Session(impersonate="safari_ios", timeout=10)
 
@@ -92,7 +107,7 @@ class Plynk:
             os.remove(filename)
         # # noinspection PyProtectedMember
         # self.session.cookies.jar._cookies.clear()
-        self._set_session(self.proxy)  # The code above causes authentication issues for whatever reason, so we use this.
+        self._set_session(self.proxy_url, self.proxy_auth)  # The code above causes authentication issues for whatever reason, so we use this.
         self.logged_in = False
 
     def login(self) -> bool:

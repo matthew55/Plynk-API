@@ -13,7 +13,8 @@ class TestPlynk(unittest.TestCase):
             password="",
             filename="plynk-creds.pkl",
             path="creds",
-            proxy=None
+            proxy_url=None,
+            proxy_auth=None
         )
         # Test credentials
         assert cls.plynk.username != "", "Make sure you set your Plynk username inside setUpClass()"
