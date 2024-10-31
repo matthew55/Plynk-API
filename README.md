@@ -58,28 +58,34 @@ When buying stocks under $1 price, the user is required to specify a dollar amou
 
 ### Placing orders by price 🥝
 ```python
-order = plynk.place_order_price(
-    account_number=account_number, 
-    ticker="AAPL", 
-    quantity=350.50,  # Buy $350.50 worth of AAPL
-    side="buy",  # Must be "buy" or "sell"
-    price="market",  # Only market orders are supported for now
-    dry_run=False # If True, will not actually place the order
-)
-print(order)
+try: 
+    order = plynk.place_order_price(
+        account_number=account_number, 
+        ticker="AAPL", 
+        quantity=350.50,  # Buy $350.50 worth of AAPL
+        side="buy",  # Must be "buy" or "sell"
+        price="market",  # Only market orders are supported for now
+        dry_run=False # If True, will not actually place the order
+    )
+    print(order)
+except RuntimeError as e:
+    print(f"Failed to place price order: {e}")
 ```
 
 ### Placing orders by quantity 🥕
 ```python
-order = plynk.place_order_quantity(
-    account_number=account_number, 
-    ticker="AAPL", 
-    quantity=2,  # Sell 2 shares worth of AAPL
-    side="sell",  # Must be "buy" or "sell"
-    price="market",  # Only market orders are supported for now
-    dry_run=False # If True, will not actually place the order
-)
-print(order)
+try:
+    order = plynk.place_order_quantity(
+        account_number=account_number, 
+        ticker="AAPL", 
+        quantity=2,  # Sell 2 shares worth of AAPL
+        side="sell",  # Must be "buy" or "sell"
+        price="market",  # Only market orders are supported for now
+        dry_run=False # If True, will not actually place the order
+    )
+    print(order)
+except RuntimeError as e:
+    print(f"Failed to place quantity order: {e}")
 ```
 
 ## Contributing  🌶️
@@ -88,7 +94,7 @@ Found or fixed a bug? Have a feature request? Feel free to open an issue or pull
 Enjoying the project? Feel free to Sponsor me on GitHub or Buy Me a Coffee!
 
 [![Sponsor](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=GitHub-Sponsors&logoColor=#white)](https://github.com/sponsors/matthew55)
-[![Buy Me A Coffee](https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=buy-me-a-coffee&logoColor=ff4aaa)](https://buymeacoffee.com/matthew55)
+[![Buy Me A Coffee](https://img.shields.io/badge/buy%20me%20a%20coffee-30363D?style=for-the-badge&logo=buy-me-a-coffee&logoColor=ff4aaa)](https://buymeacoffee.com/matthew55)
 
 [//]: # ([![Buy Me A Coffee]&#40;https://img.shields.io/badge/sponsor-30363D?style=for-the-badge&logo=buy-me-a-coffee&logoColor=fuchsia&#41;]&#40;https://buymeacoffee.com/matthew55&#41;)
 
