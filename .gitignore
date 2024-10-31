@@ -1,0 +1,8 @@
+__pycache__/
+build/
+venv/
+.env
+tests/creds/
+*.egg-info/
+*.pkl
+.idea/
