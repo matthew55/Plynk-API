@@ -36,12 +36,12 @@ class Plynk:
         self.username: str = username
         self.password: str = password
         self.filename: str = filename
-        self.path = path
-        self.proxy_url = proxy_url
-        self.proxy_auth = proxy_auth
+        self.path: Optional[str] = path
+        self.proxy_url: Optional[str] = proxy_url
+        self.proxy_auth: Optional[tuple[str, str]] = proxy_auth
         self._set_session(proxy_url, proxy_auth)
         self.account_number: Optional[str] = None
-        self.logged_in = False
+        self.logged_in: bool = False
 
         self._load_credentials()
 
@@ -217,8 +217,37 @@ class Plynk:
         }
         response = self.session.get(endpoints.stock_details_url(), headers=endpoints.build_headers(), params=querystring)
         if response.status_code != 200:
-            raise RuntimeError(f"Securities details request failed with status code {response.status_code}: {response.text}")
+            raise RuntimeError(f"Stock details request failed with status code {response.status_code}: {response.text}")
         return response.json()
+
+    @check_login
+    def get_stock_search(self, ticker:  str, exact: bool = False) -> dict:
+        """
+        Searches for a stock based off inputted text.
+
+        :param ticker: The ticker of the stock to lookup.
+        :param exact: This will return an exact match of your ticker otherwise throw an error.
+        :return: A dictionary containing a list of the search results for the stock.
+        """
+        response = self.session.get(endpoints.stock_search_url(ticker), headers=endpoints.build_headers())
+        if response.status_code != 200:
+            raise RuntimeError(f"Stock search request failed with status code {response.status_code}: {response.text}")
+
+        response = response.json()
+
+        if not exact:
+            return response
+
+        if "securities" in response:
+            for stock in response["securities"]:
+                if ticker.upper() == stock["symbol"]:
+                    return stock
+            raise RuntimeError(f"Unable to find exact match for ticker: {ticker}")
+        else:
+            message = "Message not found"
+            if "messages" in response:
+                message = response["messages"]["messageList"]["messageContent"]
+            raise RuntimeError(f"Fetched stock search missing information! Message from server: {message}")
 
     @check_login
     def is_stock_tradable(self, ticker: str) -> bool:
@@ -229,12 +258,9 @@ class Plynk:
         :param ticker: Ticker of the stock
         :return: Whether the stock is tradable
         """
-        details = self.get_stock_details(ticker)
-        if "security" in details:
-            # TODO: Look into this. Is this important? Also typo or not?
-            return bool(details["security"]["tradable"])  # Can be None which means False
-        else:
-            raise RuntimeError("Fetched securities details missing information")
+
+        search_results = self.get_stock_search(ticker, exact=True)
+        return search_results["tradable"]
 
     @check_login
     def get_stock_price(self, ticker: str) -> float:
@@ -248,25 +274,23 @@ class Plynk:
         details = self.get_stock_details(ticker)
         if "security" in details:
             try:
-                return float(details["security"]["lastPrice"])
+                return float(details["securityDetails"]["lastPrice"])
             except Exception as e:
                 raise RuntimeError(f"Unable to get float value fo stock price: {e}")
         else:
             raise RuntimeError("Fetched securities details missing information")
 
     @check_login
-    def get_stock_logo(self, ticker: str) -> str:
+    def get_stock_logo(self, ticker: str) -> Optional[str]:
         """
-        Returns the URL to the logo of a stock
+        Returns the URL to the logo of a stock. It is possible for the URL to be None meaning there is no logo.
         When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
 
         :param ticker: Ticker of the stock
         :return: URL to the logo of the stock
         """
-        details = self.get_stock_details(ticker)
-        if "security" not in details:
-            raise RuntimeError("Fetched stock details missing information")
-        return details["security"]["logo"]
+        search_result = self.get_stock_search(ticker, exact=True)
+        return search_result["logo"]
 
     @check_login
     def place_order_price(self, account_number: str, ticker: str, quantity: float, side: str, price: str = "market", dry_run: bool = False) -> dict:

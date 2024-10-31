@@ -32,8 +32,11 @@ except RuntimeError as e:
 ## Get Account Number 🥑
 
 ```python
-account_number = plynk.get_account_number()
-print(account_number)
+try:
+    account_number = plynk.get_account_number()
+    print(account_number)
+except RuntimeError as e:
+    print(f"Failed to get Plynk account number: {e}")
 ```
 
 ## Get Stock Holdings 🥭

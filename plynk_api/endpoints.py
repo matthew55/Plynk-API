@@ -25,6 +25,16 @@ def positions_url() -> str:
     return f"{digital_url()}/gateway/restrict/portfolio/v1/accounts/positions"
 
 
+def stock_search_url(ticker: str) -> str:
+    """
+    Searches for a stock based off inputted text.
+
+    :param ticker: The ticker of the stock to lookup.
+    :return: The lookup URL with the ticker in the parameters.
+    """
+    return f"{digital_url()}/gateway/restrict/market-data/v2/securities/lookup?highRiskETFsEnabled=true&input={ticker.lower()}"
+
+
 def stock_details_url() -> str:
     return f"{digital_url()}/gateway/restrict/market-data/v2/securities/details"
 
