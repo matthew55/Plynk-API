@@ -185,25 +185,20 @@ class Plynk:
         return self.account_number if self.account_number is not None else self._fetch_account_number()
 
     @check_login
-    def get_positions(self, account_number: str) -> dict:
+    def get_stock_holdings(self, account_number: str) -> dict:
         payload = {"accounts": [
             {
                 "accountNumber": f"{account_number}",
                 "registrationType": "I"
             }
         ]}
-        response = self.session.post(endpoints.positions_url(), headers=endpoints.build_headers(), json=payload)
+        response = self.session.post(endpoints.positions_url(), json=payload, headers=endpoints.build_headers())
         if response.status_code != 200:
-            raise RuntimeError(f"Positions request failed with status code {response.status_code}: {response.text}")
+            raise RuntimeError(f"Holdings request failed with status code {response.status_code}: {response.text}")
         response = response.json()
-        return response["data"]["account"]["portfolio"]
-
-    @check_login
-    def get_stock_holdings(self, account_number: str) -> dict:
-        positions = self.get_positions(account_number)
-        if "accounts" not in positions:
-            raise RuntimeError("Fetched position details missing information")
-        return positions['accounts'][0]['positionsSummary']['positions']
+        if "accounts" not in response:
+            raise RuntimeError("Fetched holdings details missing information")
+        return response['accounts'][0]['positionsSummary']['positions']
 
     @check_login
     def get_stock_details(self, ticker: str) -> dict:
@@ -237,7 +232,7 @@ class Plynk:
         details = self.get_stock_details(ticker)
         if "security" in details:
             # TODO: Look into this. Is this important? Also typo or not?
-            return details["security"]["tradable"]
+            return bool(details["security"]["tradable"])  # Can be None which means False
         else:
             raise RuntimeError("Fetched securities details missing information")
 

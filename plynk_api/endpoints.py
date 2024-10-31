@@ -2,7 +2,7 @@
 
 
 def digital_url() -> str:
-    return "https://digitalbrokerageservices.com"
+    return "https://www.digitalbrokerageservices.com"
 
 
 def ecaap_url() -> str:

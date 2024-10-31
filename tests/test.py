@@ -5,6 +5,8 @@ from time import sleep  # Slow down some of these test requests so we don't get 
 from plynk_api import Plynk
 
 
+# TODO 10/30/24 It seems like the majority of the required requests return None if the stock market is closed.
+#  Is this the actual case?
 class TestPlynk(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -31,12 +33,8 @@ class TestPlynk(unittest.TestCase):
         self.assertIsInstance(self.plynk.get_account_number(), str, "Error fetching account number")
         sleep(5)
 
-    def test_account_positions(self):
-        self.assertIsInstance(self.plynk.get_positions(self.plynk.get_account_number()), dict, "Error fetching account positions")
-        sleep(5)
-
     def test_account_holdings(self):
-        self.assertIsInstance(self.plynk.get_stock_holdings(self.plynk.get_account_number()), dict, "Error fetching account holdings")
+        self.assertIsInstance(self.plynk.get_stock_holdings(self.plynk.get_account_number()), list, "Error fetching account holdings")
         sleep(5)
 
     def test_stock_details(self):
@@ -48,11 +46,11 @@ class TestPlynk(unittest.TestCase):
         sleep(5)
 
     def test_stock_price(self):
-        self.assertIsInstance(self.plynk.is_stock_tradable("SPX"), float, "Error fetching stock price")
+        self.assertIsInstance(self.plynk.get_stock_price("SPX"), float, "Error fetching stock price")
         sleep(5)
 
     def test_stock_logo(self):
-        self.assertIsInstance(self.plynk.is_stock_tradable("SPX"), str, "Error fetching stock logo")
+        self.assertIsInstance(self.plynk.get_stock_logo("SPX"), str, "Error fetching stock logo")
         sleep(5)
 
     def test_place_order_price_dry(self):
