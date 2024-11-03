@@ -43,7 +43,7 @@ except RuntimeError as e:
 
 ```python
 try:
-    holdings = plynk.get_stock_holdings(account_number=account_number)
+    holdings = plynk.get_account_holdings(account_number=account_number)
     for holding in holdings:
         stock_symbol = holding['security']['symbol']
         current_value = holding['currentValue']
@@ -51,6 +51,37 @@ try:
         print(f"Stock Symbol: {stock_symbol}, Quantity {holding_quantity}, Current Value: {current_value}")
 except RuntimeError as e:
     print(f"Failed to get Plynk holdings: {e}")
+```
+
+## Get Account Total Value 🍖
+
+```python
+try:
+    account_total = plynk.get_account_total(account_number=account_number)
+    print(f"Account Total: {account_total}")
+except RuntimeError as e:
+    print(f"Failed to get Plynk account total: {e}")
+```
+
+## Search for Stock 🍭
+```python
+try:
+    search_result = plynk.get_stock_search(query="AA")
+    for stock in search_result["securities"]:
+        print(f"Stock: {stock["symbol"]}")
+except RuntimeError as e:
+    print(f"Failed to get Plynk stock search: {e}")
+```
+
+## Exact Stock Search Result 🥕
+Using the `get_stock_search()` function, when a ticker is provided and the `exact=` parameter is passed, the details
+of the specified stock will be returned.
+```python
+try:
+    result = plynk.get_stock_search(query="AAPL", exact=True)
+    print(f"Security Type: {result["securityType"]}")
+except RuntimeError as e:
+    print(f"Failed to get exact Plynk search results: {e}")
 ```
 
 ## Placing Orders 🍉
@@ -75,7 +106,7 @@ except RuntimeError as e:
     print(f"Failed to place price order: {e}")
 ```
 
-### Placing orders by quantity 🥕
+### Placing orders by quantity 🌮 
 ```python
 try:
     order = plynk.place_order_quantity(

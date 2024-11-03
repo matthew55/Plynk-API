@@ -161,6 +161,7 @@ class Plynk:
         """
         Fetches the user's, as specified in the credentials, account number.
         Login is not required for this function because this is used to determine if the user is logged in.
+        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
 
         :return: The user's account number.
         """
@@ -179,13 +180,20 @@ class Plynk:
     def get_account_number(self) -> str:
         """
         Returns the user's account number if it is already cached, otherwise fetches it.
+        This will throw a RuntimeError with fetching the account number fails.
 
         :return: The user's account number.
         """
         return self.account_number if self.account_number is not None else self._fetch_account_number()
 
     @check_login
-    def get_stock_holdings(self, account_number: str) -> dict:
+    def _get_positions(self, account_number: str) -> dict:
+        """
+        This fetches the user' user's positions info.
+
+        :param account_number: The user's account number.
+        :return: A dict of the user's positions info.
+        """
         payload = {"accounts": [
             {
                 "accountNumber": f"{account_number}",
@@ -194,11 +202,37 @@ class Plynk:
         ]}
         response = self.session.post(endpoints.positions_url(), json=payload, headers=endpoints.build_headers())
         if response.status_code != 200:
-            raise RuntimeError(f"Holdings request failed with status code {response.status_code}: {response.text}")
+            raise RuntimeError(f"Positions request failed with status code {response.status_code}: {response.text}")
         response = response.json()
         if "accounts" not in response:
             raise RuntimeError("Fetched holdings details missing information")
-        return response['accounts'][0]['positionsSummary']['positions']
+        return response
+
+
+    @check_login
+    def get_account_holdings(self, account_number: str) -> dict:
+        """
+        Fetches the positions of the user.
+        This will throw a RuntimeError with fetching account positions fails.
+
+        :param account_number: The user's account number.
+        :return: A list of the holdings in the user's account.
+        """
+        result = self._get_positions(account_number)
+        return result["accounts"][0]["positionsSummary"]["positions"]
+
+    @check_login
+    def get_account_total(self, account_number: str) -> float:
+        """
+        Obtains the total value of the user's portfolio
+        This will throw a RuntimeError with fetching account positions fails.
+
+        :param account_number: The user's account number.
+        :return: A float value of the total value of the user's portfolio.
+        """
+        result = self._get_positions(account_number)
+        return float(result["accounts"][0]["positionsSummary"]["assetsBreakdown"]["stocksValue"])
+
 
     @check_login
     def get_stock_details(self, ticker: str) -> dict:
@@ -221,15 +255,15 @@ class Plynk:
         return response.json()
 
     @check_login
-    def get_stock_search(self, ticker:  str, exact: bool = False) -> dict:
+    def get_stock_search(self, query:  str, exact: bool = False) -> dict:
         """
         Searches for a stock based off inputted text.
 
-        :param ticker: The ticker of the stock to lookup.
+        :param query: The input to search. If exact=True, query MUST be a valid security ticker.
         :param exact: This will return an exact match of your ticker otherwise throw an error.
         :return: A dictionary containing a list of the search results for the stock.
         """
-        response = self.session.get(endpoints.stock_search_url(ticker), headers=endpoints.build_headers())
+        response = self.session.get(endpoints.stock_search_url(query), headers=endpoints.build_headers())
         if response.status_code != 200:
             raise RuntimeError(f"Stock search request failed with status code {response.status_code}: {response.text}")
 
@@ -240,9 +274,9 @@ class Plynk:
 
         if "securities" in response:
             for stock in response["securities"]:
-                if ticker.upper() == stock["symbol"]:
+                if query.upper() == stock["symbol"]:
                     return stock
-            raise RuntimeError(f"Unable to find exact match for ticker: {ticker}")
+            raise RuntimeError(f"Unable to find exact match for ticker: {query}")
         else:
             message = "Message not found"
             if "messages" in response:
@@ -253,20 +287,20 @@ class Plynk:
     def is_stock_tradable(self, ticker: str) -> bool:
         """
         Return whether a stock is a tradable
-        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
+        This will throw a RuntimeError when fetching the companies' details fails.
 
         :param ticker: Ticker of the stock
         :return: Whether the stock is tradable
         """
 
-        search_results = self.get_stock_search(ticker, exact=True)
+        search_results = self.get_stock_search(query=ticker, exact=True)
         return search_results["tradable"]
 
     @check_login
     def get_stock_price(self, ticker: str) -> float:
         """
         Returns the last price of a stock
-        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
+        This will throw a RuntimeError when fetching the companies' details fails.
 
         :param ticker: Ticker of the stock
         :return: Last price of the stock
@@ -284,12 +318,12 @@ class Plynk:
     def get_stock_logo(self, ticker: str) -> Optional[str]:
         """
         Returns the URL to the logo of a stock. It is possible for the URL to be None meaning there is no logo.
-        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
+        This will throw a RuntimeError when fetching the companies' details fails.
 
         :param ticker: Ticker of the stock
         :return: URL to the logo of the stock
         """
-        search_result = self.get_stock_search(ticker, exact=True)
+        search_result = self.get_stock_search(query=ticker, exact=True)
         return search_result["logo"]
 
     @check_login
