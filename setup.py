@@ -9,5 +9,5 @@ setup(
     url="https://github.com/matthew55/Plynk-API",
     author="Matthew",
     packages=["plynk_api"],
-    install_requires=["curl_cffi"],
+    install_requires=["curl_cffi", "pytz"],
 )

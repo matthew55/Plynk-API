@@ -21,6 +21,14 @@ def account_url() -> str:
     return f"{digital_url()}/gateway/restrict/portfolio/v1/customer/accounts"
 
 
+def market_open_url() -> str:
+    return f"{digital_url()}/gateway/restrict/gp-market-calendar/v2/markets/reference/business-dates"
+
+
+def balance_url() -> str:
+    return f"{digital_url()}/gateway/restrict/portfolio/v1/accounts/balance"
+
+
 def positions_url() -> str:
     return f"{digital_url()}/gateway/restrict/portfolio/v1/accounts/positions"
 

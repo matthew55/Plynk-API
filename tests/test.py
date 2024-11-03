@@ -38,17 +38,19 @@ class TestPlynk(unittest.TestCase):
         self.assertIsInstance(self.plynk.get_account_total(self.plynk.get_account_number()), float, "Error fetching account total")
         sleep(5)
 
+    def test_stock_market_open(self):
+        self.assertIsInstance(self.plynk.is_stock_market_open(), bool, "Error fetching stock market open")
+        sleep(5)
+
     def test_stock_details(self):
         self.assertIsInstance(self.plynk.get_stock_details("AAPL"), dict, "Error fetching stock details")
         sleep(5)
-
 
     def test_stock_search(self):
         self.assertIsInstance(self.plynk.get_stock_search("AAPL"), dict, "Unable to fetch stock search results")
         sleep(5)
         self.assertIsInstance(self.plynk.get_stock_search(query="AAPL", exact=True), dict, "Unable to fetch exact stock search results")
         sleep(5)
-
 
     def test_stock_tradable(self):
         self.assertTrue(self.plynk.is_stock_tradable("AAPL"), "Error fetching if AAPL is tradable")  # This should be tradable
@@ -65,16 +67,32 @@ class TestPlynk(unittest.TestCase):
         sleep(5)
 
     def test_place_order_price_dry(self):
-        self.assertIsInstance(self.plynk.place_order_price(self.plynk.get_account_number(), "AAPL", 1.0451479, "BUY", "market", True), dict, "Error placing dry price market buy")
+        try:
+            self.assertIsInstance(self.plynk.place_order_price(self.plynk.get_account_number(), "AAPL", 1.0451479, "BUY", "market", True), dict, "Error placing dry price market buy")
+        except RuntimeError as e:
+            # If the RuntimeError is raised, check if it's about the stock market not being open
+            self.assertEqual(str(e), "Stock market is not open")
         sleep(5)
-        self.assertIsInstance(self.plynk.place_order_price(self.plynk.get_account_number(), "AAPL", 12345, "SELL", "market", True), dict, "Error placing dry price market sell")
+        try:
+            self.assertIsInstance(self.plynk.place_order_price(self.plynk.get_account_number(), "AAPL", 12345, "SELL", "market", True), dict, "Error placing dry price market sell")
+        except RuntimeError as e:
+            # If the RuntimeError is raised, check if it's about the stock market not being open
+            self.assertEqual(str(e), "Stock market is not open")
         sleep(5)
         # TODO 10/30/24 Add limit tests once limit functionality is added.
 
     def test_place_order_quantity_dry(self):
-        self.assertIsInstance(self.plynk.place_order_quantity(self.plynk.get_account_number(), "AAPL", 1.0451479, "BUY", "market", True), dict, "Error placing dry quantity market buy")
+        try:
+            self.assertIsInstance(self.plynk.place_order_quantity(self.plynk.get_account_number(), "AAPL", 1.0451479, "BUY", "market", True), dict, "Error placing dry quantity market buy")
+        except RuntimeError as e:
+            # If the RuntimeError is raised, check if it's about the stock market not being open
+            self.assertEqual(str(e), "Stock market is not open")
         sleep(5)
-        self.assertIsInstance(self.plynk.place_order_price(self.plynk.get_account_number(), "AAPL", 112345, "SELL", "market", True), dict, "Error placing dry quantity market sell")
+        try:
+            self.assertIsInstance(self.plynk.place_order_price(self.plynk.get_account_number(), "AAPL", 112345, "SELL", "market", True), dict, "Error placing dry quantity market sell")
+        except RuntimeError as e:
+            # If the RuntimeError is raised, check if it's about the stock market not being open
+            self.assertEqual(str(e), "Stock market is not open")
         sleep(5)
         # TODO 10/30/24 Add limit tests once limit functionality is added.
 

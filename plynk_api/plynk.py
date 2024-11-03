@@ -1,5 +1,9 @@
+import json
 import os
 import pickle
+import pytz
+
+from datetime import datetime
 from curl_cffi import requests
 from typing import Optional
 
@@ -165,16 +169,20 @@ class Plynk:
 
         :return: The user's account number.
         """
-        account_number = None
         response = self.session.get(endpoints.account_url(), headers=endpoints.build_headers())
         if response.status_code != 200:
             raise RuntimeError(f"Account number request failed with status code {response.status_code}: {response.text}")
         response = response.json()
         if "accounts" in response:
             account_number = response["accounts"][0]["accountNumber"]
-        if not account_number:
-            raise RuntimeError("Unable to get account number")
-        return account_number
+            if not account_number:
+                raise RuntimeError("Unable to get account number")
+            return account_number
+        else:
+            message = "Message not found"
+            if "messages" in response:
+                message = response["messages"]["messageList"][0]["messageContent"]
+            raise RuntimeError(f"Fetched account number missing information! Message from server: {message}")
 
     @check_login
     def get_account_number(self) -> str:
@@ -187,9 +195,10 @@ class Plynk:
         return self.account_number if self.account_number is not None else self._fetch_account_number()
 
     @check_login
-    def _get_positions(self, account_number: str) -> dict:
+    def get_positions(self, account_number: str) -> dict:
         """
         This fetches the user' user's positions info.
+        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
 
         :param account_number: The user's account number.
         :return: A dict of the user's positions info.
@@ -204,10 +213,13 @@ class Plynk:
         if response.status_code != 200:
             raise RuntimeError(f"Positions request failed with status code {response.status_code}: {response.text}")
         response = response.json()
-        if "accounts" not in response:
-            raise RuntimeError("Fetched holdings details missing information")
-        return response
-
+        if "accounts" in response:
+            return response
+        else:
+            message = "Message not found"
+            if "messages" in response:
+                message = response["messages"]["messageList"][0]["messageContent"]
+            raise RuntimeError(f"Fetched holdings details missing information! Message from server: {message}")
 
     @check_login
     def get_account_holdings(self, account_number: str) -> dict:
@@ -218,20 +230,68 @@ class Plynk:
         :param account_number: The user's account number.
         :return: A list of the holdings in the user's account.
         """
-        result = self._get_positions(account_number)
+        result = self.get_positions(account_number)
         return result["accounts"][0]["positionsSummary"]["positions"]
 
     @check_login
     def get_account_total(self, account_number: str) -> float:
         """
         Obtains the total value of the user's portfolio
-        This will throw a RuntimeError with fetching account positions fails.
+        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
 
         :param account_number: The user's account number.
         :return: A float value of the total value of the user's portfolio.
         """
-        result = self._get_positions(account_number)
-        return float(result["accounts"][0]["positionsSummary"]["assetsBreakdown"]["stocksValue"])
+        payload = {"accounts": [
+            {
+                "accountNumber": f"{account_number}",
+                "registrationType": "I"
+            }
+        ]}
+        response = self.session.post(endpoints.balance_url(), json=payload, headers=endpoints.build_headers())
+        if response.status_code != 200:
+            raise RuntimeError(f"Account total request failed with status code {response.status_code}: {response.text}")
+        response = response.json()
+        if "accounts" in response:
+            try:
+                return float(response["accounts"][0]["balanceSummary"]["totalAssets"])
+            except Exception as e:
+                raise RuntimeError(f"Unable parse float account total value: {e}")
+        else:
+            message = "Message not found"
+            if "messages" in response:
+                message = response["messages"]["messageList"][0]["messageContent"]
+            raise RuntimeError(f"Fetched account total details missing information! Message from server: {message}")
+
+
+    @check_login
+    def is_stock_market_open(self) -> bool:
+        """
+        Returns whether the stock market is currently open.
+
+        :return: Bool of whether the stock market is currently open.
+        """
+
+        # Get current time in EST for the format
+        eastern = pytz.timezone('US/Eastern')
+        eastern_time = datetime.now(eastern)
+        formatted_time = eastern_time.strftime('%Y-%m-%dT%H:%M:%S')
+        fid_fbt_application_data_header = {"FID-FBT-APPLICATION-DATA": json.dumps({"calendarDateTime": formatted_time, "timezone": "ET", "countryCode": "US", "businessPartyCode": None, "isBankIndicator": None, "isIgnoreTime": None, "offsetDays": 6})}
+
+        response = self.session.get(endpoints.market_open_url(), headers=endpoints.build_headers(headers=fid_fbt_application_data_header))
+        if response.status_code != 200:
+            raise RuntimeError(f"Is stock market open request failed with status code {response.status_code}: {response.text}")
+        response = response.json()
+        if "businessDates" in response:
+            try:
+                return bool(response["businessDates"][0]["isOpen"])
+            except Exception as e:
+                raise RuntimeError(f"Unable parse boolean is market open value: {e}")
+        else:
+            message = "Message not found"
+            if "messages" in response:
+                message = response["messages"]["messageList"][0]["messageContent"]
+            raise RuntimeError(f"Fetched market open details missing information! Message from server: {message}")
 
 
     @check_login
@@ -280,7 +340,7 @@ class Plynk:
         else:
             message = "Message not found"
             if "messages" in response:
-                message = response["messages"]["messageList"]["messageContent"]
+                message = response["messages"]["messageList"][0]["messageContent"]
             raise RuntimeError(f"Fetched stock search missing information! Message from server: {message}")
 
     @check_login
@@ -294,7 +354,10 @@ class Plynk:
         """
 
         search_results = self.get_stock_search(query=ticker, exact=True)
-        return search_results["tradable"]
+        try:
+            return bool(search_results["tradable"])
+        except Exception as e:
+            raise RuntimeError(f"Unable parse boolean tradable value: {e}")
 
     @check_login
     def get_stock_price(self, ticker: str) -> float:
@@ -305,14 +368,17 @@ class Plynk:
         :param ticker: Ticker of the stock
         :return: Last price of the stock
         """
-        details = self.get_stock_details(ticker)
-        if "security" in details:
+        response = self.get_stock_details(ticker)
+        if "security" in response:
             try:
-                return float(details["securityDetails"]["lastPrice"])
+                return float(response["securityDetails"]["lastPrice"])
             except Exception as e:
                 raise RuntimeError(f"Unable to get float value fo stock price: {e}")
         else:
-            raise RuntimeError("Fetched securities details missing information")
+            message = "Message not found"
+            if "messages" in response:
+                message = response["messages"]["messageList"][0]["messageContent"]
+            raise RuntimeError(f"Fetched securities details missing information! Message from server: {message}")
 
     @check_login
     def get_stock_logo(self, ticker: str) -> Optional[str]:
@@ -324,7 +390,11 @@ class Plynk:
         :return: URL to the logo of the stock
         """
         search_result = self.get_stock_search(query=ticker, exact=True)
-        return search_result["logo"]
+        try:
+            return search_result["logo"]
+        except Exception as e:
+            raise RuntimeError(f"Unable parse logo URL: {e}")
+
 
     @check_login
     def place_order_price(self, account_number: str, ticker: str, quantity: float, side: str, price: str = "market", dry_run: bool = False) -> dict:
@@ -343,6 +413,11 @@ class Plynk:
         """
         if side.upper() not in ["BUY", "SELL"]:
             raise RuntimeError("Side must be either 'BUY' or 'SELL'")
+
+        # Check if market is open
+        market_open = self.is_stock_market_open()
+        if not market_open:
+            raise RuntimeError(f"Stock market is not open")
 
         # Check if stock is tradable
         can_trade = self.is_stock_tradable(ticker)
@@ -403,6 +478,11 @@ class Plynk:
         """
         if side.upper() not in ["BUY", "SELL"]:
             raise RuntimeError("Side must be either 'BUY' or 'SELL'")
+
+        # Check if market is open
+        market_open = self.is_stock_market_open()
+        if not market_open:
+            raise RuntimeError(f"Stock market is not open")
 
         # Check if stock is tradable
         can_trade = self.is_stock_tradable(ticker)
