@@ -10,7 +10,8 @@ This is an *unofficial* API for Plynk. It is a simple Python wrapper around the 
 pip install 'plynk-api'
 ```
 
-## Logging In 🍅
+## Code Examples 🥧
+### Logging In 🍅
 
 ```python
 from plynk_api import Plynk
@@ -29,7 +30,7 @@ except RuntimeError as e:
     print(f"Failed to login to Plynk: {e}")
 ```
 
-## Get Account Number 🥑
+### Get Account Number 🥑
 
 ```python
 try:
@@ -39,7 +40,7 @@ except RuntimeError as e:
     print(f"Failed to get Plynk account number: {e}")
 ```
 
-## Get Stock Holdings 🥭
+### Get Stock Holdings 🥭
 
 ```python
 try:
@@ -53,7 +54,7 @@ except RuntimeError as e:
     print(f"Failed to get Plynk holdings: {e}")
 ```
 
-## Get Account Total Value 🍖
+### Get Account Total Value 🍖
 
 ```python
 try:
@@ -63,7 +64,7 @@ except RuntimeError as e:
     print(f"Failed to get Plynk account total: {e}")
 ```
 
-## Search for Stock 🍭
+### Search for Stock 🍭
 ```python
 try:
     search_result = plynk.get_stock_search(query="AA")
@@ -73,7 +74,7 @@ except RuntimeError as e:
     print(f"Failed to get Plynk stock search: {e}")
 ```
 
-## Exact Stock Search Result 🥕
+### Exact Stock Search Result 🥕
 Using the `get_stock_search()` function, when a ticker is provided and the `exact=` parameter is passed, the details
 of the specified stock will be returned.
 ```python
@@ -84,13 +85,13 @@ except RuntimeError as e:
     print(f"Failed to get exact Plynk search results: {e}")
 ```
 
-## Placing Orders 🍉
+### Placing Orders 🍉
 
 There are two ways to place an order in Plynk, specifying a dollar amount to buy/sell, or specifying a quantity to buy/sell.
 
 When buying stocks under $1 price, the user is required to specify a dollar amount instead of specifying a quantity.
 
-### Placing orders by price 🥝
+#### Placing orders by price 🥝
 ```python
 try: 
     order = plynk.place_order_price(
@@ -106,7 +107,7 @@ except RuntimeError as e:
     print(f"Failed to place price order: {e}")
 ```
 
-### Placing orders by quantity 🌮 
+#### Placing orders by quantity 🌮 
 ```python
 try:
     order = plynk.place_order_quantity(
