@@ -5,7 +5,7 @@ import pytz
 
 from datetime import datetime
 from curl_cffi import requests
-from typing import Optional
+from typing import Optional, Callable
 
 from plynk_api import endpoints
 
@@ -55,7 +55,7 @@ class Plynk:
 
         :param proxy_url: String of "PROXY_URL:PROXY_PORT"
         :param proxy_auth: Tuple of (PROXY_USERNAME, PASSWORD)
-        :return: None
+        :return: None.
         """
         if proxy_url is not None and proxy_auth is not None:
             self.session: requests.Session = requests.Session(impersonate="safari_ios", proxy=proxy_url, proxy_auth=proxy_auth, timeout=10)
@@ -68,7 +68,7 @@ class Plynk:
         """
         Attempts to load the previously saved session cookies from the specified cookie file and path.
 
-        :return: None
+        :return: None.
         """
         filename = self.filename
         if self.path is not None:
@@ -85,7 +85,7 @@ class Plynk:
         """
         Saves the current session cookies to the specified cookie file and path.
 
-        :return: None
+        :return: None.
         """
         filename = self.filename
         if self.path is not None:
@@ -100,7 +100,7 @@ class Plynk:
         """
         Clears the session cookies and removes the existing cookie file.
 
-        :return: None
+        :return: None.
         """
         filename = self.filename
         if self.path is not None:
@@ -114,11 +114,12 @@ class Plynk:
         self._set_session(self.proxy_url, self.proxy_auth)  # The code above causes authentication issues for whatever reason, so we use this.
         self.logged_in = False
 
-    def login(self) -> bool:
+    def login(self, otp_callback: Optional[Callable[[], str]] = None) -> bool:
         """
         This handles authenticating the user's session.
-        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
+        This will throw a RuntimeError when authenticating fails.
 
+        :param otp_callback: A custom function that returns a string that the user can specify to get SMS OTP codes.
         :return: Whether the login completed successfully.
         """
         # If creds exist, check if they are valid/try to refresh
@@ -126,40 +127,100 @@ class Plynk:
             self.logged_in = True
             return True
 
-        # Make initial authentication request
-        payload = {
-            "username": f"{self.username}",
-            "requestBaseInfo": None,
-            "password": f"{self.password}"
-        }
-        response = self.session.post(endpoints.authentication_url(), headers=endpoints.build_headers(ecaap=True), json=payload)
-        if response.status_code != 200:
-            raise RuntimeError(f"Authentication request failed with status code {response.status_code}: {response.text}")
+        # Make authentication request
+        response = self._authenticate()
 
-        # Make login request
+        if "messages" in response:
+            message = response["messages"]["messageList"][0]["messageContent"]
+            if message == "Authentication Not Completed":
+                self._authenticate(True, otp_callback)
+
+        self.account_number = self._fetch_account_number()
+        self.logged_in = True
+        self._save_credentials()
+        return True
+
+    def _authenticate(self, otp: bool = False, otp_callback: Optional[Callable[[], str]] = None) -> dict:
+        """
+        This handles authentication with Plynk. It can handle OTP passcode authentication when requested too.
+        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
+
+        :param otp: Whether to attempt OTP authentication.
+        :param otp_callback: A custom function that returns a string that the user can specify to get SMS OTP codes.
+        :return: Dict of login request.
+        """
+        if otp:
+            self._request_sms_code()
+            otp = otp_callback() if otp_callback else input("Please enter the OTP you received: ")
+            payload = {
+                "securityCode": otp
+            }
+        else:
+            payload = {
+                "username": f"{self.username}",
+                "requestBaseInfo": None,
+                "password": f"{self.password}"
+            }
+        response = self.session.post(endpoints.authentication_url(), json=payload, headers=endpoints.build_headers(ecaap=True))
+        if response.status_code != 200:
+            raise RuntimeError(
+                f"Authentication request failed with status code {response.status_code}: {response.text}")
         payload = {}  # Yes this is required, I don't know why.
         response = self.session.post(endpoints.login_url(), json=payload, headers=endpoints.build_headers(ecaap=True))
         if response.status_code != 200:
             raise RuntimeError(f"Login request failed with status code {response.status_code}: {response.text}")
+        return response.json()
 
-        self._save_credentials()
-        self.account_number = self._fetch_account_number()
-        self.logged_in = True
-        return True
-
-    def _verify_login(self) -> bool:
+    def _fetch_phone_number(self) -> str:
         """
-        Test login by attempting to request Account IDs
+        Fetches the last 4 digits of the user's, as specified in the credentials, phone number.
+        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
 
-        :return: Whether account info fetched successfully.
+        :return: The last for digits of the user's phone number.
         """
-        # noinspection PyBroadException
-        try:
-            self._fetch_account_number()
-            return True
-        except Exception:
-            self._clear_credentials()
-            return False
+        response = self.session.get(endpoints.phone_url(), headers=endpoints.build_headers(ecaap=True))
+        if response.status_code != 200:
+            raise RuntimeError(f"Phone number request failed with status code {response.status_code}: {response.text}")
+        response = response.json()
+        if "phone" in response:
+            for phone in response["phone"]:
+                # Make sure the phone number is active before returning it.
+                value = phone["value"]
+                try:
+                    enabled = bool(phone["enabled"])
+                except KeyError | TypeError:
+                    raise RuntimeError("Unable to get bool value of enabled")
+                if enabled:
+                    return value
+                raise RuntimeError("Unable to get phone number")
+        else:
+            message = "Message not found"
+            if "messages" in response:
+                message = response["messages"]["messageList"][0]["messageContent"]
+            raise RuntimeError(f"Fetched phone number missing information! Message from server: {message}")
+
+
+    def _request_sms_code(self) -> dict:
+        """
+        Requests Plynk send an SMS code to the user.
+        When unsuccessful, this will throw a RuntimeError with details elaborating what failed.
+
+        :return: Dict of SMS code request.
+        """
+
+        # Get the last four digits of the user's phone number.
+        phone_last_four = self._fetch_phone_number()
+
+        payload = {
+            "template": "Plynk: Your code is $$CODE$$. It expires in 30 minutes. Thank you.",
+            "phone": phone_last_four
+        }
+        response = self.session.post(endpoints.authentication_url(), json=payload, headers=endpoints.build_headers(ecaap=True))
+        if response.status_code != 200:
+            raise RuntimeError(f"SMS code request failed with status code {response.status_code}: {response.text}")
+        if "messages" not in response:
+            raise RuntimeError(f"Fetched SMS code message missing information!")
+        return response.json()
 
     def _fetch_account_number(self) -> str:
         """
@@ -184,11 +245,25 @@ class Plynk:
                 message = response["messages"]["messageList"][0]["messageContent"]
             raise RuntimeError(f"Fetched account number missing information! Message from server: {message}")
 
+    def _verify_login(self) -> bool:
+        """
+        Test login by attempting to request Account IDs
+
+        :return: Whether account info fetched successfully.
+        """
+        # noinspection PyBroadException
+        try:
+            self._fetch_account_number()
+            return True
+        except Exception:
+            self._clear_credentials()
+            return False
+
     @check_login
     def get_account_number(self) -> str:
         """
         Returns the user's account number if it is already cached, otherwise fetches it.
-        This will throw a RuntimeError with fetching the account number fails.
+        This will throw a RuntimeError when fetching the account number fails.
 
         :return: The user's account number.
         """
@@ -225,7 +300,7 @@ class Plynk:
     def get_account_holdings(self, account_number: str) -> dict:
         """
         Fetches the positions of the user.
-        This will throw a RuntimeError with fetching account positions fails.
+        This will throw a RuntimeError when fetching account positions fails.
 
         :param account_number: The user's account number.
         :return: A list of the holdings in the user's account.

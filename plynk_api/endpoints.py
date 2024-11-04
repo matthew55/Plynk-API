@@ -17,6 +17,14 @@ def login_url() -> str:
     return f"{ecaap_url()}/user/session/login"
 
 
+def phone_url() -> str:
+    return f"{ecaap_url()}/user/identity/attributes?attributes=phone"
+
+
+def sms_url() -> str:
+    return f"{ecaap_url()}/user/factor/otp/sms/authentication"
+
+
 def account_url() -> str:
     return f"{digital_url()}/gateway/restrict/portfolio/v1/customer/accounts"
 

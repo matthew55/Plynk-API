@@ -29,6 +29,28 @@ try:
 except RuntimeError as e:
     print(f"Failed to login to Plynk: {e}")
 ```
+Most of the time users will not be required to provide an SMS code, but in the event they are you are able to pass a 
+custom function that gets the SMS code of the user. If you do not do this `input()` will be used by default.
+```python
+from plynk_api import Plynk
+
+def get_otp() -> str:
+    otp = #my custom code...
+    return otp
+
+plynk = Plynk(
+    username="USERNAME",
+    password="PASSWORD",
+    filename="plynk-creds.pkl",
+    path="creds",
+    proxy_url=None,  # Takes "URL:PORT"
+    proxy_auth=None # Takes ("USERNAME", "PASSWORD")
+)
+try:
+    plynk.login(otp_callback=get_otp)
+except RuntimeError as e:
+    print(f"Failed to login to Plynk: {e}")
+```
 
 ### Get Account Number 🥑
 
