@@ -557,7 +557,7 @@ class Plynk:
         # Check if market is open
         market_open = self.is_stock_market_open()
         if not market_open:
-            raise RuntimeError(f"Stock market is not open")
+            raise RuntimeError("Stock market is not open")
 
         # Check if stock is tradable
         can_trade = self.is_stock_tradable(ticker)
@@ -565,8 +565,10 @@ class Plynk:
             raise RuntimeError(f"Stock {ticker} is not tradable")
 
         stock_price = self.get_stock_price(ticker)
-        if stock_price < 1:
-            raise RuntimeError(f"Stock {ticker}'s is under $1. You must use price quantities for stock's priced under $1")
+        if stock_price * quantity < 1:
+            raise RuntimeError(
+                f"Stock {ticker}'s is under $1. You must use either use price quantities or (quantity*stock price) must be greater than $1 for stocks under $1"
+            )
 
         if dry_run:
             return {
